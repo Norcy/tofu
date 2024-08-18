@@ -1509,56 +1509,86 @@ class Exporter {
 
     async exportInterest(storage) {
         let sheetNames = {
-            'movie/done': '看过',
-            'movie/doing': '在看',
-            'movie/mark': '想看',
-            'music/done': '听过',
-            'music/doing': '在听',
-            'music/mark': '想听',
-            'book/done': '读过',
-            'book/doing': '在读',
-            'book/mark': '想读',
-            'game/done': '玩过',
-            'game/doing': '在玩',
-            'game/mark': '想玩',
-            'drama/done': '看过的舞台剧',
-            'drama/mark': '想看的舞台剧',
-        };
-        for (let type of ['movie', 'music', 'book', 'game', 'drama']) {
-            for (let status of ['done', 'doing', 'mark']) {
-                let sheetName = sheetNames[`${type}/${status}`];
-                if (!sheetName) continue;
-
-                let collection = storage.local.interest
-                    .where({ type: type, status: status })
-                    .reverse();
-                let data = [['标题', '简介', '豆瓣评分', '链接', '创建时间', '我的评分', '标签', '评论', '可见性']];
-                await collection.each(row => {
-                    let {
-                        subject,
-                        tags,
-                        rating,
-                        comment,
-                        create_time,
-                        is_private
-                    } = row.interest;
-                    data.push([
-                        subject.title,
-                        subject.card_subtitle,
-                        subject.rating ? subject.rating.value.toFixed(1) : subject.null_rating_reason,
-                        subject.url,
-                        create_time,
-                        rating ? rating.value : '',
-                        tags.toString(),
-                        comment,
-                        is_private ? "private" : "public"
-                    ]);
-                });
-                let worksheet = XLSX.utils.aoa_to_sheet(data);
-                XLSX.utils.book_append_sheet(this.workbook, worksheet, sheetName);
-            }
+            "movie/done": "看过",
+            "movie/doing": "在看",
+            "movie/mark": "想看",
+            "music/done": "听过",
+            "music/doing": "在听",
+            "music/mark": "想听",
+            "book/done": "读过",
+            "book/doing": "在读",
+            "book/mark": "想读",
+            "game/done": "玩过",
+            "game/doing": "在玩",
+            "game/mark": "想玩",
+            "drama/done": "看过的舞台剧",
+            "drama/mark": "想看的舞台剧",
+            };
+        for (let type of ["movie", "music", "book", "game", "drama"]) {
+          for (let status of ["done", "doing", "mark"]) {
+            let sheetName = sheetNames[`${type}/${status}`];
+            if (!sheetName) continue;
+    
+            let collection = storage.local.interest
+              .where({ type: type, status: status })
+              .reverse();
+            let data = [
+              [
+                "标题",
+                "简介",
+                "豆瓣评分",
+                "链接",
+                "创建时间",
+                "我的评分",
+                "标签",
+                "评论",
+                "可见性",
+                "分类",
+                "海报",
+                "演员",
+                "导演",
+                "作者",
+                "出版/上映日期",
+                "出版社",
+                "页数",
+                "类型",
+              ],
+            ];
+            await collection.each((row) => {
+              let { subject, tags, rating, comment, create_time, is_private } =
+                row.interest;
+              console.log("[Nx] 导出数据", row);
+              const intro = subject.intro ?? subject.card_subtitle ?? "";
+              const press = subject.press ? subject.press[0] : "";
+              const pages = subject.pages ? subject.pages[0] : "";
+              data.push([
+                subject.title,
+                intro,
+                subject.rating
+                  ? subject.rating.value.toFixed(1)
+                  : subject.null_rating_reason,
+                subject.url,
+                create_time,
+                rating ? rating.value : "",
+                tags.toString(),
+                comment,
+                is_private ? "private" : "public",
+                subject.type,
+                subject.pic.normal,
+                JSON.stringify(subject.actors) ?? "",
+                JSON.stringify(subject.directors) ?? "",
+                JSON.stringify(subject.author) ?? "",
+                JSON.stringify(subject.pubdate) ?? "",
+                press,
+                pages,
+                JSON.stringify(subject.genres) ?? "",
+              ]);
+            });
+            let worksheet = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(this.workbook, worksheet, sheetName);
+          }
         }
-    }
+      }
 
     async exportReview(storage) {
         let sheetNames = {'movie': '影评', 'music': '乐评', 'book': '书评', 'drama': '剧评', 'game': '游戏评论&攻略'};
