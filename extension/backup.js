@@ -181,11 +181,17 @@ class TaskModal {
     }
 
     get targetUserId() {
-        let matches = this.userHomepageInput.value.match(/^https:\/\/www\.douban\.com\/people\/([^\/]+)\/?$/);
-        if (matches) {
-            return matches[1];
+        try {
+            const url = new URL(this.userHomepageInput.value.trim());
+            if (url.protocol !== 'https:' || url.hostname !== 'www.douban.com') {
+                return null;
+            }
+
+            const matches = url.pathname.match(/^\/people\/([^/]+)\/?$/);
+            return matches ? decodeURIComponent(matches[1]) : null;
+        } catch (e) {
+            return null;
         }
-        return null;
     }
 
     get enableTargetUser() {

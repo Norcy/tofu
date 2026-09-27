@@ -9,6 +9,7 @@
     <link type="text/css" rel="stylesheet" href="vendor/bulma.min.css">
     <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="vendor/switchery.min.css">
+    <script src="vendor/xlsx.full.min.js"></script>
     <script src="vendor/zepto.min.js"></script>
     <script src="vendor/switchery.min.js"></script>
     <style>
@@ -275,6 +276,24 @@
             </div>
         </div>
     </section>
+    <div class="modal" id="job-complete-modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">任务已完成</p>
+                <button class="delete cancel" aria-label="关闭"></button>
+            </header>
+            <section class="modal-card-body">
+                <p class="job-complete-summary">备份数据已就绪。你可以浏览备份，或直接导出 Excel。</p>
+                <p class="help is-danger export-error is-hidden"></p>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-link" name="browse-backup">浏览备份</button>
+                <button class="button is-success" name="export-excel">直接导出 Excel</button>
+                <button class="button cancel">稍后</button>
+            </footer>
+        </div>
+    </div>
     <script type="module" src="options.js"></script>
 </body>
 

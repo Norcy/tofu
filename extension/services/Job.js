@@ -26,8 +26,11 @@ export default class Job extends EventTarget {
         this._isRunning = false;
         this._currentTask = null;
         this._id = null;
+        this._userId = null;
+        this._exportItems = [];
         this._session = null;
         this._isOffline = isOffline;
+        this._hasTaskErrors = false;
     }
 
     /**
@@ -139,6 +142,7 @@ export default class Job extends EventTarget {
         }
 
         let storage = new Storage(this._localUserId || userId);
+        this._userId = userId;
         await storage.global.open();
         logger.debug('Open global database');
         if (this._isOffline) {
@@ -212,6 +216,7 @@ export default class Job extends EventTarget {
             try {
                 await task.run();
             } catch (e) {
+                this._hasTaskErrors = true;
                 console.error(e)
                 logger.error('Fail to run task:' + e);
             }
@@ -224,6 +229,18 @@ export default class Job extends EventTarget {
      */
     get isRunning() {
         return this._isRunning;
+    }
+
+    get hasTaskErrors() {
+        return this._hasTaskErrors;
+    }
+
+    get userId() {
+        return this._userId;
+    }
+
+    get exportItems() {
+        return this._exportItems;
     }
 
     /**
@@ -261,8 +278,11 @@ export default class Job extends EventTarget {
             tasks: this._tasks.map(task => task.toJSON()), // 保存任务
             isOffline: this._isOffline,
             _id: this._id,
+            _userId: this._userId,
+            _exportItems: this._exportItems,
             _session: this._session,
             _isRunning: this._isRunning,
+            _hasTaskErrors: this._hasTaskErrors,
             _currentTask: this._currentTask ? this._currentTask.toJSON() : null,
         };
     }
@@ -278,8 +298,11 @@ export default class Job extends EventTarget {
         let fetch = Service.getFetchURL(service);
         const job = new Job(service, json.targetUserId, json.localUserId, json.isOffline);
         job._id = json._id;
+        job._userId = json._userId || null;
+        job._exportItems = Array.isArray(json._exportItems) ? json._exportItems : [];
         job._session = json._session;
         job._isRunning = json._isRunning;
+        job._hasTaskErrors = !!json._hasTaskErrors;
         job._currentTask = json._currentTask ? taskFromJSON(json._currentTask, fetch, service.logger, storage) : null;
 
         // 恢复任务

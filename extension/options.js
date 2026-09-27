@@ -3,6 +3,7 @@ import Service, {SERVICE_SETTINGS} from './service.js';
 import {TASK_FILES_SETTINGS} from './tasks/files.js';
 import Notification from './ui/notification.js';
 import TabPanel from './ui/tab.js';
+import Exporter from './exporter.js';
 
 
 class AccountPanel {
@@ -190,6 +191,77 @@ const TEMPLATE_TASK = `\
   <td><progress class="progress is-info"></progress></td>
 </tr>`;
 
+const EXPORT_ITEM_LABELS = {
+    Interest: '影/音/书/游/剧',
+    Review: '评论',
+    Status: '广播',
+    Following: '关注',
+    Follower: '被关注',
+    Blacklist: '黑名单',
+    Note: '日记',
+    Photo: '相册',
+    Annotation: '笔记',
+    Doumail: '豆邮',
+    Doulist: '豆列',
+    Board: '留言板'
+};
+
+
+class JobCompleteDialog {
+    constructor(selector = '#job-complete-modal') {
+        this.element = document.querySelector(selector);
+        this.summary = this.element.querySelector('.job-complete-summary');
+        this.error = this.element.querySelector('.export-error');
+        this.exportButton = this.element.querySelector('[name="export-excel"]');
+        this.result = null;
+
+        this.element.querySelectorAll('.cancel, .modal-background').forEach(button => {
+            button.addEventListener('click', () => this.close());
+        });
+        this.element.querySelector('[name="browse-backup"]').addEventListener('click', () => {
+            window.open(chrome.runtime.getURL(`explorer.html?${this.result.userId}`));
+            this.close();
+        });
+        this.exportButton.addEventListener('click', () => this.exportExcel());
+    }
+
+    open(result) {
+        this.result = result;
+        const items = Array.isArray(result.exportItems) ? result.exportItems : [];
+        this.summary.textContent = items.length
+            ? `备份已成功完成。Excel 将包含：${items.map(item => EXPORT_ITEM_LABELS[item] || item).join('、')}。`
+            : '任务已完成。此任务没有可导出的 Excel 数据，你可以浏览备份查看结果。';
+        this.exportButton.classList.toggle('is-hidden', items.length === 0);
+        this.error.textContent = '';
+        this.error.classList.add('is-hidden');
+        this.element.classList.add('is-active');
+    }
+
+    close() {
+        this.element.classList.remove('is-active');
+    }
+
+    async exportExcel() {
+        const button = this.exportButton;
+        button.classList.add('is-loading');
+        button.disabled = true;
+        this.error.classList.add('is-hidden');
+
+        try {
+            const exporter = new Exporter(this.result.userId);
+            await exporter.export(this.result.exportItems);
+            exporter.save();
+            this.close();
+        } catch (error) {
+            this.error.textContent = `导出失败：${error.message || error}`;
+            this.error.classList.remove('is-hidden');
+        } finally {
+            button.classList.remove('is-loading');
+            button.disabled = false;
+        }
+    }
+}
+
 
 /**
  * class ServicePanel
@@ -205,6 +277,7 @@ export default class ServicePanel {
         this.$loading = $panel.find('.service-ctrl[name="loading"]');
         this.$logs = $panel.find('.logs');
         this.$job = $panel.find('.job');
+        this.completionDialog = new JobCompleteDialog();
         this.$start.click(async event => {
             console.log("start click")
             await service.start();
@@ -215,6 +288,9 @@ export default class ServicePanel {
         });
         service.addEventListener('statechange', event => this.onStateChange(event.target));
         service.addEventListener('progress', event => this.onProgress(event.target));
+        service.addEventListener('jobcomplete', event => {
+            if (event.detail.success) this.completionDialog.open(event.detail);
+        });
         if (service.debug) {
             service.logger.addEventListener('log', event => this.onLog(event.detail));
             this.$logs.parent().removeClass('is-hidden');

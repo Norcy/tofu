@@ -18,6 +18,11 @@ export const SERVICE_SETTINGS = {
     'service.cloudinary': '',
 };
 
+const EXPORTABLE_TASKS = new Set([
+    'Annotation', 'Board', 'Doulist', 'Doumail', 'Follower', 'Following',
+    'Interest', 'Note', 'Photo', 'Review', 'Status', 'Blacklist'
+]);
+
 /**
  * Class Service
  */
@@ -278,6 +283,9 @@ export default class Service extends EventTarget {
         console.log(`service createJob targetUserId ${targetUserId} localUserId ${localUserId} isOffline ${isOffline}`, tasks)
         this.logger.debug('Creating a job...');
         let job = new Job(this, targetUserId, localUserId, isOffline);
+        job._exportItems = tasks
+            .map(({name}) => name)
+            .filter(name => EXPORTABLE_TASKS.has(name));
         for (let {name, args} of tasks) {
             try {
                 let taskFile = `./tasks/${name.toLowerCase()}.js`
@@ -443,9 +451,17 @@ export default class Service extends EventTarget {
                 await service.continue();
                 console.log('Performing job...');
                 logger.debug('Performing job...');
-                await service._currentJob.run();
+                const completedJob = service._currentJob;
+                await completedJob.run();
                 console.log('Job completed...');
                 logger.debug('Job completed...');
+                service.dispatchEvent(new CustomEvent('jobcomplete', {
+                    detail: {
+                        success: !completedJob.hasTaskErrors,
+                        userId: completedJob.userId,
+                        exportItems: completedJob.exportItems
+                    }
+                }));
                 service._currentJob = null;
             } catch (e) {
                 console.error(e)
