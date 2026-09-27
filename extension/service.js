@@ -44,7 +44,7 @@ export default class Service extends EventTarget {
         return {
             _currentJob: this._currentJob ? this._currentJob.toJSON() : null, // 序列化当前任务
             _ports: Array.from(this._ports.entries()), // 将 Map 转换为数组
-            _jobQueueTasks: this._jobQueue.promises.length > 0 ? this._jobQueue.promises : [], // 保存任务队列内容
+            _jobQueueTasks: this._jobQueue.items.map(job => job.toJSON()), // 保存待执行的任务
             _status: this._status,
             lastRequest: this.lastRequest,
             _debug: this._debug
@@ -53,7 +53,11 @@ export default class Service extends EventTarget {
 
     static fromJSON(json, service) {
         const instance = new Service();
-        instance._currentJob = json._currentJob ? Job.fromJSON(json._currentJob, service, service.storage) : null; // 反序列化当前任务
+        // Only Job snapshots can be resumed here. Older versions could restore
+        // queue entries as base Task objects, whose run() always throws.
+        instance._currentJob = Service.isJobJSON(json._currentJob)
+            ? Job.fromJSON(json._currentJob, service, service.storage)
+            : null;
         instance._ports = new Map(json._ports); // 将数组转换回 Map
         instance._status = json._status;
         instance.lastRequest = json.lastRequest;
@@ -62,12 +66,21 @@ export default class Service extends EventTarget {
         // 重新初始化任务队列
         instance._jobQueue = new AsyncBlockingQueue();
         if (json._jobQueueTasks && json._jobQueueTasks.length > 0) {
-            for (let taskJson of json._jobQueueTasks) {
-                instance._jobQueue.enqueue(taskFromJSON(taskJson, service.fetch, service.logger, service.storage));
+            for (let jobJson of json._jobQueueTasks) {
+                if (Service.isJobJSON(jobJson)) {
+                    instance._jobQueue.enqueue(Job.fromJSON(jobJson, service, service.storage));
+                } else {
+                    console.warn('忽略无法恢复的旧队列项', jobJson);
+                }
             }
         }
 
         return instance;
+    }
+
+    static isJobJSON(value) {
+        return !!value && typeof value === 'object' && Array.isArray(value.tasks)
+            && Object.prototype.hasOwnProperty.call(value, 'isOffline');
     }
 
 

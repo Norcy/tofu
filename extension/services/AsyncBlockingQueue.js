@@ -3,42 +3,36 @@
  */
 export default class AsyncBlockingQueue {
     constructor() {
-        this.resolves = [];
-        this.promises = [];
-    }
-
-    _add() {
-        this.promises.push(
-            new Promise(resolve => {
-                this.resolves.push(resolve);
-            })
-        );
+        this.items = [];
+        this.resolvers = [];
     }
 
     enqueue(item) {
-        if (!this.resolves.length) this._add();
-        let resolve = this.resolves.shift();
-        resolve(item);
+        this.items.push(item);
+        const resolve = this.resolvers.shift();
+        if (resolve) resolve();
     }
 
-    dequeue() {
-        if (!this.promises.length) this._add();
-        return this.promises.shift();
+    async dequeue() {
+        if (!this.items.length) {
+            await new Promise(resolve => this.resolvers.push(resolve));
+        }
+        return this.items.shift();
     }
 
     isEmpty() {
-        return !this.promises.length;
+        return this.items.length === 0;
     }
 
     isBlocked() {
-        return !!this.resolves.length;
+        return this.resolvers.length > 0;
     }
 
     clear() {
-        this.promises.length = 0;
+        this.items.length = 0;
     }
 
     get length() {
-        return (this.promises.length - this.resolves.length);
+        return this.items.length;
     }
 }
